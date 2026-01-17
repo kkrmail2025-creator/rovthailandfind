@@ -1,0 +1,267 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoV Finder - หาเพื่อนร่วมทีม</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --primary: #e74c3c;
+            --dark: #121212;
+            --card: #1e1e1e;
+            --text: #ffffff;
+            --blue-btn: #3085d6; /* สีปุ่ม OK ตามรูปที่คุณต้องการ */
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: var(--dark);
+            color: var(--text);
+            margin: 0;
+            padding-bottom: 50px;
+        }
+
+        /* --- UI Styling --- */
+        nav {
+            background: #000;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid var(--primary);
+        }
+        
+        .auth-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-weight: 600;
+        }
+
+        .container { max-width: 500px; margin: 20px auto; padding: 0 15px; }
+
+        .card {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #2a2a2a;
+            color: #fff;
+            font-family: 'Kanit', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .btn-post {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* --- Post Feed Styling --- */
+        .post {
+            background: var(--card);
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .room-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #000;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .room-id { font-size: 1.5rem; color: #2ecc71; font-weight: bold; letter-spacing: 2px; }
+
+        .copy-btn {
+            background: #444;
+            color: #fff;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* --- SweetAlert2 Custom Font --- */
+        .swal2-popup { font-family: 'Kanit', sans-serif !important; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div style="font-weight: bold; color: var(--primary);">ROV PARTY</div>
+    <div id="authArea">
+        <button id="btnAnon" class="auth-btn" style="background: #444; color: white;">ไม่ระบุตัวตน</button>
+        <button id="btnGoogle" class="auth-btn" style="background: #fff; color: #333; margin-left: 5px;">Google</button>
+        <button id="btnLogout" class="auth-btn" style="background: var(--primary); color: white; display: none;">ออก</button>
+    </div>
+</nav>
+
+<div class="container">
+    <div id="loginMsg" style="text-align: center; margin-top: 50px; color: #666;">
+        <h3>กรุณาเข้าสู่ระบบเพื่อประกาศหาทีม</h3>
+    </div>
+
+    <div id="postArea" class="card" style="display: none;">
+        <h3 style="margin-top: 0;">📢 ประกาศหาทีม</h3>
+        <select id="mode">
+            <option value="Ranked 5v5">จัดอันดับ (Ranked)</option>
+            <option value="Normal 5v5">โหมดปกติ (Normal)</option>
+            <option value="3v3 / 1v1">โหมดอื่นๆ</option>
+        </select>
+        <input type="number" id="room" placeholder="ระบุเลขห้อง (Room ID)">
+        <button class="btn-post" onclick="submitPost()">ลงประกาศ</button>
+    </div>
+
+    <div id="feed"></div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // ⚠️ ใส่ Config จาก Firebase ของคุณตรงนี้ ⚠️
+     const firebaseConfig = {
+  apiKey: "AIzaSyC_HN2WdK2XOw6uJ0-zbDG32PyLRrCnwp4",
+  authDomain: "rov-party-finder.firebaseapp.com",
+  projectId: "rov-party-finder",
+  storageBucket: "rov-party-finder.firebasestorage.app",
+  messagingSenderId: "546055281977",
+  appId: "1:546055281977:web:e796a62d4d43b77e935ce8",
+  measurementId: "G-3C99LWGH1L"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    let userNow = null;
+
+    // --- Authentication ---
+    document.getElementById('btnGoogle').onclick = () => signInWithPopup(auth, provider);
+    document.getElementById('btnAnon').onclick = () => signInAnonymously(auth);
+    document.getElementById('btnLogout').onclick = () => signOut(auth);
+
+    onAuthStateChanged(auth, (u) => {
+        userNow = u;
+        if (u) {
+            document.getElementById('postArea').style.display = 'block';
+            document.getElementById('loginMsg').style.display = 'none';
+            document.getElementById('btnLogout').style.display = 'inline-block';
+            document.getElementById('btnGoogle').style.display = 'none';
+            document.getElementById('btnAnon').style.display = 'none';
+        } else {
+            document.getElementById('postArea').style.display = 'none';
+            document.getElementById('loginMsg').style.display = 'block';
+            document.getElementById('btnLogout').style.display = 'none';
+            document.getElementById('btnGoogle').style.display = 'inline-block';
+            document.getElementById('btnAnon').style.display = 'inline-block';
+        }
+    });
+
+    // --- ฟังก์ชันหลัก: ส่งข้อมูลและแสดงป๊อปอัพ ---
+    window.submitPost = async () => {
+        const mode = document.getElementById('mode').value;
+        const room = document.getElementById('room').value;
+
+        if (!room) {
+            // ป๊อปอัพเตือนถ้าลืมใส่เลขห้อง
+            Swal.fire({
+                icon: 'warning',
+                title: 'กรุณาใส่เลขห้อง!',
+                confirmButtonColor: '#e74c3c',
+                confirmButtonText: 'ตกลง'
+            });
+            return;
+        }
+
+        try {
+            await addDoc(collection(db, "posts"), {
+                mode: mode,
+                room: room,
+                name: userNow.isAnonymous ? "นิรนาม" : userNow.displayName,
+                time: new Date()
+            });
+
+            document.getElementById('room').value = '';
+
+            // ✅ ป๊อปอัพแบบเดียวกับรูปที่คุณต้องการ ✅
+            Swal.fire({
+                title: 'บันทึกสำเร็จ!',
+                icon: 'success',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#3085d6' // สีน้ำเงินตามรูป
+            });
+
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message });
+        }
+    };
+
+    // --- ดึงข้อมูลแสดงใน Feed ---
+    const q = query(collection(db, "posts"), orderBy("time", "desc"), limit(20));
+    onSnapshot(q, (snaps) => {
+        const feed = document.getElementById('feed');
+        feed.innerHTML = "";
+        snaps.forEach((doc) => {
+            const d = doc.data();
+            feed.innerHTML += `
+                <div class="post">
+                    <div style="font-size: 0.8rem; color: #888;">👤 ${d.name} • ${d.mode}</div>
+                    <div class="room-box">
+                        <span class="room-id">${d.room}</span>
+                        <button class="copy-btn" onclick="copyText('${d.room}')">คัดลอก</button>
+                    </div>
+                </div>
+            `;
+        });
+    });
+
+    // --- ฟังก์ชันคัดลอก (แบบ Toast) ---
+    window.copyText = (txt) => {
+        navigator.clipboard.writeText(txt);
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'คัดลอกเลขห้องแล้ว',
+            showConfirmButton: false,
+            timer: 1500
+        });
+    };
+</script>
+
+</body>
+</html>
