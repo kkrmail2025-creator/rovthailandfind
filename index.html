@@ -1,0 +1,309 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoV Party Finder - หาเพื่อนลงแรงก์</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #e74c3c;
+            --dark: #1a1a1d;
+            --card: #2d2d30;
+            --text: #ffffff;
+            --success: #27ae60;
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: var(--dark);
+            color: var(--text);
+            margin: 0;
+            padding-bottom: 50px;
+        }
+
+        /* Navbar */
+        nav {
+            background: #000;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid var(--primary);
+        }
+        
+        .logo { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+        
+        /* Auth Buttons */
+        .auth-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .btn-google { background: #fff; color: #333; }
+        .btn-anon { background: #555; color: #fff; margin-right: 10px; }
+        .btn-logout { background: var(--primary); color: #fff; display: none; }
+
+        /* Container */
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        /* Input Form */
+        #postForm {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 10px;
+            display: none; /* ซ่อนก่อน login */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #aaa; }
+        
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background: #222;
+            color: #fff;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+
+        /* Post Feed */
+        .feed-area { margin-top: 30px; }
+        
+        .post-card {
+            background: var(--card);
+            border-left: 5px solid var(--primary);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            position: relative;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 10px;
+        }
+
+        .user-tag { color: #f1c40f; font-weight: bold; }
+        .anon-tag { color: #95a5a6; font-style: italic; }
+
+        .room-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #222;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .room-number {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--success);
+            letter-spacing: 2px;
+        }
+
+        .game-mode {
+            background: #444;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 10px;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid #555;
+            color: #ccc;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .copy-btn:hover { background: #444; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        #loginMessage { text-align: center; margin-top: 50px; color: #888; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="logo"><i class="fas fa-gamepad"></i> RoV Party</div>
+    <div id="authContainer">
+        <button id="btnAnon" class="auth-btn btn-anon"><i class="fas fa-user-secret"></i> ไม่ระบุตัวตน</button>
+        <button id="btnGoogle" class="auth-btn btn-google"><i class="fab fa-google"></i> เข้าสู่ระบบ</button>
+        <button id="btnLogout" class="auth-btn btn-logout">ออกจากระบบ</button>
+    </div>
+</nav>
+
+<div class="container">
+    <div id="loginMessage">
+        <h2>กรุณาเข้าสู่ระบบเพื่อสร้างห้อง</h2>
+        <p>เลือก "ไม่ระบุตัวตน" หากต้องการความรวดเร็ว</p>
+    </div>
+
+    <div id="postForm">
+        <h3><i class="fas fa-plus-circle"></i> ประกาศหาเพื่อนเล่น</h3>
+        <div class="form-group">
+            <label>โหมดเกม</label>
+            <select id="gameType">
+                <option value="Ranked (จัดอันดับ)">Ranked (จัดอันดับ)</option>
+                <option value="Normal (5v5)">Normal (5v5)</option>
+                <option value="Abyssal Clash (3v3)">Abyssal Clash (3v3)</option>
+                <option value="1v1">Solo (1v1)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>หมายเลขห้อง (Room ID)</label>
+            <input type="number" id="roomId" placeholder="เช่น 123456" pattern="\d*">
+        </div>
+        <button onclick="createPost()" class="btn-submit">ประกาศหาทีม!</button>
+    </div>
+
+    <div id="feed" class="feed-area">
+        </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // -------------------------------------------------------------
+    // ?? สำคัญ: ใส่ค่า Firebase Config ของคุณตรงนี้
+    // -------------------------------------------------------------
+    const firebaseConfig = {
+  apiKey: "AIzaSyC_HN2WdK2XOw6uJ0-zbDG32PyLRrCnwp4",
+  authDomain: "rov-party-finder.firebaseapp.com",
+  projectId: "rov-party-finder",
+  storageBucket: "rov-party-finder.firebasestorage.app",
+  messagingSenderId: "546055281977",
+  appId: "1:546055281977:web:e796a62d4d43b77e935ce8",
+  measurementId: "G-3C99LWGH1L"
+};
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    let currentUser = null;
+
+    // --- Authentication Logic ---
+    const btnGoogle = document.getElementById('btnGoogle');
+    const btnAnon = document.getElementById('btnAnon');
+    const btnLogout = document.getElementById('btnLogout');
+    const postForm = document.getElementById('postForm');
+    const loginMessage = document.getElementById('loginMessage');
+
+    btnGoogle.addEventListener('click', () => signInWithPopup(auth, provider));
+    btnAnon.addEventListener('click', () => signInAnonymously(auth));
+    btnLogout.addEventListener('click', () => signOut(auth));
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            currentUser = user;
+            btnGoogle.style.display = 'none';
+            btnAnon.style.display = 'none';
+            btnLogout.style.display = 'block';
+            postForm.style.display = 'block';
+            loginMessage.style.display = 'none';
+        } else {
+            currentUser = null;
+            btnGoogle.style.display = 'inline-block';
+            btnAnon.style.display = 'inline-block';
+            btnLogout.style.display = 'none';
+            postForm.style.display = 'none';
+            loginMessage.style.display = 'block';
+        }
+    });
+
+    // --- Post Logic ---
+    window.createPost = async () => {
+        const gameType = document.getElementById('gameType').value;
+        const roomId = document.getElementById('roomId').value;
+
+        if (!roomId) { alert("กรุณาใส่เลขห้อง!"); return; }
+
+        try {
+            await addDoc(collection(db, "posts"), {
+                gameType: gameType,
+                roomId: roomId,
+                author: currentUser.isAnonymous ? "ผู้เล่นนิรนาม" : currentUser.displayName,
+                isAnon: currentUser.isAnonymous,
+                uid: currentUser.uid,
+                createdAt: new Date()
+            });
+            document.getElementById('roomId').value = ''; // Clear input
+            alert("โพสต์สำเร็จ!");
+        } catch (e) {
+            console.error("Error:", e);
+            alert("เกิดข้อผิดพลาด");
+        }
+    };
+
+    // --- Realtime Feed Logic ---
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(20));
+    
+    onSnapshot(q, (snapshot) => {
+        const feed = document.getElementById('feed');
+        feed.innerHTML = ""; // Clear feed to prevent duplicates
+        
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            const date = data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}) : 'เมื่อสักครู่';
+            
+            const html = `
+                <div class="post-card">
+                    <div class="post-header">
+                        <span class="${data.isAnon ? 'anon-tag' : 'user-tag'}">
+                            <i class="fas fa-user"></i> ${data.author}
+                        </span>
+                        <span>${date} น.</span>
+                    </div>
+                    <div><span class="game-mode">${data.gameType}</span></div>
+                    <div class="room-info">
+                        <span class="room-number">${data.roomId}</span>
+                        <button class="copy-btn" onclick="navigator.clipboard.writeText('${data.roomId}'); alert('คัดลอกแล้ว!')">
+                            <i class="far fa-copy"></i> คัดลอก
+                        </button>
+                    </div>
+                </div>
+            `;
+            feed.innerHTML += html;
+        });
+    });
+</script>
+
+</body>
+</html>
